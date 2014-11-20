@@ -85,15 +85,17 @@ Msg 的API 比较简单，其介绍都浓缩在`test.html`页面中，将js部�
 
         //test tie
 
-        test.tie(['tie1', 'tie2', 'tie3', 'tie4'], function(tie1, tie2, tie3, tie4) {
+        //设置命名空间，可以方便的用 test.off('.nameSpace') 一次性解除
+        test.tie(['tie1.nameSpace', 'tie2.nameSpace', 'tie3.nameSpace', 'tie4.nameSpace'], function(tie1, tie2, tie3, tie4) {
             console.log('tie 方法绑定所有事件，在它们至少都被触发过一次之后，才产生反应')
             console.log(arguments)
         })
 
-        test.spread('tie2', 'tie2', 'tie2', 'tie2')
-        test.spread('tie4', 'tie4')
-        test.spread('tie1', 'tie1')
-        test.spread('tie3', 'tie3')
+        test.spread('tie2', 'tie2 data', 'tie2 data', 'tie2 data')
+        test.spread('tie4', 'tie4 data')
+        test.spread('tie1', 'tie1 data')
+        test.spread('tie3', 'tie3 data do')
+        test.spread('tie3', 'tie3 data done')
 
         //test tick
 
@@ -109,6 +111,9 @@ Msg 的API 比较简单，其介绍都浓缩在`test.html`页面中，将js部�
         //取消一类消息
         test.off('msg3')
         test.spread('msg3', 'msg2已经被取消，这条消息不会出现')
+
+        //根据命名空间取消消息反应
+        test.off('.nameSpace')
 
         //取消一组消息类型
         test.off(['msg1', 'msg4', 'msg5'])

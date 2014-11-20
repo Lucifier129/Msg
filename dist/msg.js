@@ -25,8 +25,6 @@
 	var isFn = isType('Function')
 	var isArr = Array.isArray || isType('Array')
 
-
-
 	function hasOwnKey(obj, key) {
 		return obj != null && hasOwn.call(obj, key)
 	}
@@ -89,7 +87,6 @@
 		return obj
 	}
 
-
 	function extend() {
 		var target = arguments[0]
 		var deep
@@ -102,7 +99,6 @@
 		if (!isObj(target)) {
 			return target
 		}
-
 
 		var sourceList = slice.call(arguments, deep ? 2 : 1)
 
@@ -130,16 +126,17 @@
 
 	}
 
-
 	function throwErr(msg) {
 		throw new Error(msg)
 	}
 
-	var nextTick =  typeof process !== 'undefined' && process.nextTick || function(fn) {
-		return setTimeout(fn, 0)
+	function randomStr() {
+		return 'Msg-' + Math.random().toString(36).substr(2)
 	}
 
-
+	var nextTick = typeof process !== 'undefined' && process.nextTick || function(fn) {
+		return setTimeout(fn, 0)
+	}
 
 	function Msg() {
 
@@ -155,8 +152,23 @@
 
 		_add: function(msgType, reaction) {
 
-			this._reactions[msgType] = this._reactions[msgType] || []
-			this._reactions[msgType].push(reaction)
+			var index = msgType.indexOf('.')
+			var name
+
+			if (index <= 0) {
+
+				name = randomStr()
+
+			} else {
+
+				name = msgType.substr(index + 1)
+				msgType = msgType.substr(0, index)
+
+			}
+
+			reactions = this._reactions[msgType] = this._reactions[msgType] || {}
+			reactions[name] = reactions[name] || []
+			reactions[name].push(reaction)
 
 			return this
 
@@ -180,24 +192,51 @@
 						that._add(type, reaction)
 					}
 				})
-
 			}
-
 
 			return this
 		},
 
 		_react: function(msgType) {
 
-			var that = this
-			var data = slice.call(arguments, 1)
-
 			if (isStr(msgType) && hasOwnKey(this._reactions, msgType)) {
 
-				each(this._reactions[msgType], function(rection) {
-					rection.msgType = msgType
-					rection.apply(global, data)
-				})
+				var that = this
+				var data = slice.call(arguments, 1)
+				var index = msgType.indexOf('.')
+				var name
+
+				function react(reactions, theName) {
+
+					if (name === undefined || name === theName) {
+						each(reactions, function(reaction) {
+							reaction.msgType = msgType
+							reaction.apply(global, data)
+						})
+					}
+				}
+
+				if (index === 0) {
+
+					name = msgType.substr(1)
+
+					each(this._reactions, function(_reactions, _msgType) {
+
+						msgType = _msgType
+						each(_reactions, react)
+
+					})
+
+				} else {
+
+					if (index > 0) {
+						name = msgType.substr(index + 1)
+						msgType = msgType.substr(0, index)
+					}
+
+					each(this._reactions[msgType], react)
+
+				}
 
 			}
 
@@ -233,30 +272,7 @@
 			return this
 		},
 
-		_cancel: function(msgType, reaction) {
-
-			var reactions
-
-			if (isStr(msgType) && hasOwnKey(this._reactions, msgType)) {
-
-				reactions = this._reactions[msgType]
-
-				for (var i = reactions.length - 1; i >= 0; i--) {
-					if (reactions[i] === reaction) {
-						//异步删除
-						//否则在既有 once 方法绑定，又有 on 方法绑定的消息事件中出错
-						nextTick(function() {
-							reactions.splice(i, 1)
-						})
-						break
-					}
-				}
-			}
-
-			return this
-		},
-
-		off: function(msgType, reaction) {
+		off: function(msgType) {
 
 			var that = this
 
@@ -265,24 +281,45 @@
 
 				this._reactions = {}
 
-				//取消一组消息类型
-			} else if (isArr(msgType)) {
-
-				each(msgType, function(type) {
-					that._reactions[type] = []
-				})
-
 			} else {
 
-				//取消具体一个消息反应
-				if (isFn(reaction)) {
+				//根据是否有命名空间， 分情况取消消息订阅
+				function off(theMsgType) {
+					var index = theMsgType.indexOf('.')
+					var name
 
-					this._cancel(msgType, reaction)
+					if (index === 0) {
 
-					//取消具体一类消息反应
+						if (theMsgType in that._reactions) {
+							that._reactions[theMsgType] = {}
+						} else {
+							name = theMsgType.substr(1)
+							each(that._reactions, function(_reactions) {
+
+								each(_reactions, function(reactions, theName) {
+									if (name === theName) {
+										_reactions[name] = []
+									}
+								})
+
+							})
+						}
+
+					} else if (index > 0) {
+						name = theMsgType.substr(index + 1)
+						theMsgType = theMsgType.substr(0, index)
+						that._reactions[theMsgType][name] = []
+					} else {
+						that._reactions[theMsgType] = {}
+					}
+				}
+
+				//取消一组消息
+				if (isArr(msgType)) {
+					each(msgType, off);
 				} else if (isStr(msgType)) {
-
-					this._reactions[msgType] = []
+					//取消一类
+					off(msgType)
 				}
 
 			}
@@ -292,16 +329,16 @@
 		}
 	}
 
-
-
 	extend(msg, {
 
 		once: function(msgType, reaction) {
 			var that = this
 
+			msgType += '.once'
+
 			function wrapper() {
 				reaction.apply(global, arguments)
-				that._cancel(msgType, wrapper)
+				that.off(msgType, wrapper)
 			}
 
 			return this._add(msgType, wrapper)
@@ -328,7 +365,7 @@
 
 		},
 
-		tie: function(msgTypes, reaction, once) {
+		tie: function(msgTypes, reaction) {
 
 			if (!isFn(reaction)) {
 				throwErr(reaction + '不是一个函数')
@@ -344,6 +381,7 @@
 				each(msgTypes, function(msgType) {
 
 					if (isStr(msgType)) {
+						msgType = msgType.substr(0 , msgType.indexOf('.'))
 						cache[msgType] = data[msgType] = 1
 						total += 1
 					}
@@ -356,19 +394,20 @@
 						return
 					}
 
-
 					delete cache[wrapper.msgType]
 
 					data[wrapper.msgType] = arguments.length === 1 ? arguments[0] : slice.call(arguments)
+
 
 					if (++count >= total) {
 
 						var datas = []
 
 						each(msgTypes, function(type) {
-							datas.push(data[type])
-							if (once) {
-								that._cancel(type, wrapper)
+							if (isStr(type)) {
+								type = type.substr(0 , type.indexOf('.'))
+								cache[type] = 1
+								datas.push(data[type])
 							}
 						})
 
@@ -406,12 +445,11 @@
 
 			setTimeout(function() {
 				that.spread.apply(that, args)
-			}, timeout || 4)
+			}, timeout || 0)
 
 			return this
 		}
 	})
-
 
 	extend(msg, {
 		isObj: isObj,
@@ -426,22 +464,19 @@
 		nextTick: nextTick
 	})
 
-
 	if (typeof define === 'function') {
 
 		define(function() {
 			return Msg
 		})
 
-	} else if (typeof module !== 'undefined'  && isObj(module.exports) && isObj(exports)) {
+	} else if (typeof module !== 'undefined' && isObj(module.exports) && isObj(exports)) {
 
 		module.exports = Msg
 
 	} else {
 
 		global.Msg = Msg
-
 	}
-
 
 }(this));
