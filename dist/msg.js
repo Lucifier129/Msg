@@ -470,7 +470,7 @@
 			return Msg
 		})
 
-	} else if (typeof module !== 'undefined' && isObj(module.exports) && isObj(exports)) {
+	} else if (typeof module !== 'undefined' && isObj(module.exports) && typeof exports !== 'undefined') {
 
 		module.exports = Msg
 
