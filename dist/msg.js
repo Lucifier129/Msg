@@ -176,22 +176,29 @@
 
 		on: function(msgType, reaction) {
 
-			if (!isFn(reaction)) {
-				throwErr(reaction + '不是一个函数')
-			}
+			var that = this
 
-			if (isStr(msgType)) {
+			if (isFn(reaction)) {
 
-				this._add(msgType, reaction)
+				if (isStr(msgType)) {
+					this._add(msgType, reaction)
+				} else if (isArr(msgType)) {
 
-			} else if (isArr(msgType)) {
+					each(msgType, function(type) {
+						if (isStr(type)) {
+							that._add(type, reaction)
+						}
+					})
 
-				var that = this
-				each(msgType, function(type) {
-					if (isStr(type)) {
-						that._add(type, reaction)
+				}
+			} else if (isObj(msgType)) {
+
+				each(msgType, function(reaction, type) {
+					if (isFn(reaction)) {
+						that.on(type, reaction)
 					}
 				})
+
 			}
 
 			return this
@@ -381,7 +388,7 @@
 				each(msgTypes, function(msgType) {
 
 					if (isStr(msgType)) {
-						msgType = msgType.substr(0 , msgType.indexOf('.'))
+						msgType = msgType.substr(0, msgType.indexOf('.'))
 						cache[msgType] = data[msgType] = 1
 						total += 1
 					}
@@ -405,7 +412,7 @@
 
 						each(msgTypes, function(type) {
 							if (isStr(type)) {
-								type = type.substr(0 , type.indexOf('.'))
+								type = type.substr(0, type.indexOf('.'))
 								cache[type] = 1
 								datas.push(data[type])
 							}

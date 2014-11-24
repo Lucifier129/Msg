@@ -45,9 +45,22 @@
             console.log('msg1 二次绑定')
         })
 
-        //批量绑定
+        //批量绑定同一事件
         test.on(['msg2', 'msg3', 'msg4', 'msg5', 'msg6'], function() {
             console.log(arguments)
+        })
+
+        //批量绑定多个事件
+        test.on({
+            msg7: function() {
+                console.log('msg7')
+            },
+            msg8: function() {
+                console.log('msg8')
+            },
+            msg9: function() {
+                console.log('msg9')
+            }
         })
 
         console.log(test)
